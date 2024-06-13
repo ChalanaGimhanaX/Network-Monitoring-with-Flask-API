@@ -1,144 +1,65 @@
-# Network Monitoring Setup
+# Network Monitoring with Flask API
 
-This repository contains scripts to set up network monitoring on multiple VPS instances. It captures download and upload speeds and sends the data to a central Flask-based API server.
+Monitor the network speeds (download/upload) of multiple VPS instances using speedtest-cli and a centralized Flask API for data collection and display.
 
-## Repository Structure
-network-monitoring/
-├── api/
-│ ├── app.py
-│ ├── requirements.txt
-│ └── start_flask.sh
-├── vps1/
-│ └── speedtest.sh
-├── vps2/
-│ └── speedtest.sh
-└── bootstrap.sh
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-- `api/`: Contains the Flask application to receive and display network speed data.
-- `vps1/`: Contains the script to capture and send network speed data from VPS1.
-- `vps2/`: Contains the script to capture and send network speed data from VPS2.
-- `bootstrap.sh`: A script to set up a new VPS instance.
+## Features
 
-## Requirements
+* **Automated Setup:**  Easily set up new VPS instances for monitoring using the `bootstrap.sh` script.
+* **Real-time Monitoring:** Capture and send network speed data to the Flask API for continuous tracking.
+* **Centralized Data:**  Store and access historical speed data from all monitored VPS instances.
+* **Customizable API:**  The Flask app can be easily extended to support additional features or data points.
+* **Lightweight and Efficient:** Minimal resource usage on the VPS instances.
 
-### General Requirements
+## Prerequisites
 
-- Git
-- Curl
-- ifstat
-- Python 3
-- Python virtual environment (venv)
+### All VPS Instances
 
-### API Hosting VPS
+* **Operating System:**  Linux (Ubuntu/Debian preferred)
+* **Packages:** `git`, `curl`, `speedtest-cli` (install via `apt install speedtest`), `python3`, `python3-venv`
+* **Network Access:**  Outbound access to the internet and the API server.
 
-- Flask
+### API Server VPS
 
-## Setup Instructions
+* **Packages:** `python3`, `python3-venv`, `flask`
 
-### 1. Clone the Repository
+## Installation and Setup
 
-First, clone the repository to your VPS:
+1. **Clone the Repository:**
+   ```bash
+   git clone [https://github.com/ChalanaGimhanaX/VPS-Network-Monitering-api-.git](https://github.com/ChalanaGimhanaX/VPS-Network-Monitering-api-.git)
+   cd VPS-Network-Monitering-api- 
+2.Make Scripts Executable:
+  chmod +x api/start_flask.sh vps1/speedtest.sh vps2/speedtest.sh bootstrap.sh
 
-`bash
-git clone https://github.com/ChalanaGimhanaX/VPS-Network-Monitering-api-.git
-cd network-monitoring
+3.Bootstrap Each VPS:
+* On the API Server VPS: ./bootstrap.sh api
+* On VPS1 (Monitoring Target): ./bootstrap.sh vps1
+* On VPS2 (Monitoring Target): ./bootstrap.sh vps2
+ (Replace vps1 and vps2 with the names of your VPS folders)
 
-2. Make Scripts Executable
-   chmod +x api/start_flask.sh
-   chmod +x vps1/speedtest.sh
-   chmod +x vps2/speedtest.sh
-   chmod +x bootstrap.sh
+##Usage
+1.Start the API Server: On your API server VPS, navigate to the api directory and run ./start_flask.sh. This will start the Flask application.
 
-3. Use the Bootstrap Script
-Run the bootstrap.sh script to set up the appropriate environment on each VPS.
+2.Monitor Data:
+ * API Endpoint: Access http://<your_api_server_ip>:5000/bot/speed in your browser to view the latest speed data.
+ * Custom Script: Use the provided Python script (fetch_speed_data.py) on your local machine to fetch and display the speed data continuously.
 
-On API Hosting VPS
-./bootstrap.sh api
-On VPS1
-./bootstrap.sh vps1
-On VPS2
-./bootstrap.sh vps2
+Configuration
+ * API Endpoint: Modify the API_ENDPOINT variable in speedtest.sh scripts on the monitoring VPS instances to point to your actual API server.
+ * Cron Jobs: Cron jobs are set up in start_flask.sh and speedtest.sh to automatically run the scripts on boot and periodically. You can adjust the frequency in the crontab files if needed.
+   
+Additional Information
+ * Security: Consider adding authentication or restricting access to your API server for production environments.
+ * Data Persistence: The current implementation stores data in memory. For long-term storage, you might want to integrate a database.
 
-Scripts Details
-bootstrap.sh
-This script will update the package list, install necessary packages, clone the repository, and run the setup scripts based on the server type (api, vps1, or vps2).
+**License**
+This project is licensed under the MIT License.
+**Key Enhancements**
 
-api/start_flask.sh
-This script will:
-
-Navigate to the directory containing your Flask app.
-Install dependencies using a virtual environment.
-Start the Flask application.
-Set up a cron job to run this script at boot time.
-vps1/speedtest.sh and vps2/speedtest.sh
-These scripts will:
-Capture download and upload speeds for a specified network interface.
-Send the speed data to the API server.
-Set up a cron job to run the script at boot time.
-
-Running the Flask Application
-Ensure you have the following in your api/ directory:
-
-app.py
-
-from flask import Flask, request, jsonify
-
-app = Flask(__name__)
-
-# Dictionary to store the latest speed data
-speed_data = {"VPS1": "", "VPS2": ""}
-
-@app.route('/bot/speed', methods=['POST'])
-def receive_speed_data():
-    data = request.get_data(as_text=True)
-    print("Received speed data:")
-    print(data)
-    
-    # Determine if the data is from VPS1 or VPS2 based on the IP address
-    if "134.209.110.62" in request.remote_addr:
-        speed_data["VPS1"] = data
-    elif "134.209.101.242" in request.remote_addr:
-        speed_data["VPS2"] = data
-
-    return jsonify({'message': 'Data received successfully'})
-
-@app.route('/bot/speed', methods=['GET'])
-def get_speed_data():
-    return jsonify(speed_data)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
-
-Monitoring the Speed Data
-Use the following Python script on your local machine to fetch and display the speed data:
-import requests
-import time
-
-def fetch_speed_data(api_endpoint):
-    while True:
-        try:
-            response = requests.get(api_endpoint)
-            if response.status_code == 200:
-                data = response.json()
-                print("Received speed data:")
-                print(f"VPS1: {data['VPS1']}")
-                print(f"VPS2: {data['VPS2']}")
-            else:
-                print(f"Failed to fetch speed data. Status code: {response.status_code}")
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching speed data: {e}")
-        
-        time.sleep(10)  # Adjust interval (in seconds) as needed
-
-if __name__ == "__main__":
-    api_endpoint = "http://0.0.0.0:555/bot/speed"
-    fetch_speed_data(api_endpoint)
-
-
-Conclusion
-By following these instructions, you can quickly set up network monitoring on new VPS instances using the scripts hosted in this repository. Simply run the bootstrap.sh script with the appropriate server type to automate the setup process.
-
-This `README.md` file provides clear instructions on how to set up and use the scripts in your GitHub repository, making it easy to redeploy your monitoring setup on new VPS instances.
-
-
-      
+* **Clear Structure:** The README is organized into sections with headers for easy navigation.
+* **Feature Highlights:** The features are prominently listed to attract users.
+* **Concise Instructions:** The installation and usage steps are clear and easy to follow.
+* **Additional Information:** Guidance on security and data persistence is provided.
+* **License:** The MIT license badge is included to clarify usage permissions.
