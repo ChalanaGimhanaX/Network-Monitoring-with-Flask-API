@@ -5,7 +5,7 @@ sudo apt-get update
 sudo apt-get install -y git curl ifstat python3 python3-venv
 
 # Clone the repository
-git clone https://github.com/yourusername/network-monitoring.git
+git clone https://github.com/ChalanaGimhanaX/VPS-Network-Monitering-api-.git
 
 # Run the setup scripts based on the server type
 if [ "$1" == "api" ]; then
