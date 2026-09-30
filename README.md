@@ -1,65 +1,86 @@
-# Network Monitoring with Flask API
+# VPS Network Monitoring with Flask and Bash
 
-Monitor the network speeds (download/upload) of multiple VPS instances using speedtest-cli and a centralized Flask API for data collection and display.
+A prototype for collecting Linux network-interface throughput from VPS instances and viewing the latest readings through a Python Flask API.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+The Bash collectors use `ifstat` to sample incoming and outgoing traffic and send readings over HTTP. This measures current interface traffic; it is not an internet speed benchmark.
 
-## Features
+## Architecture
 
-* **Automated Setup:**  Easily set up new VPS instances for monitoring using the `bootstrap.sh` script.
-* **Real-time Monitoring:** Capture and send network speed data to the Flask API for continuous tracking.
-* **Centralized Data:**  Store and access historical speed data from all monitored VPS instances.
-* **Customizable API:**  The Flask app can be easily extended to support additional features or data points.
-* **Lightweight and Efficient:** Minimal resource usage on the VPS instances.
+`VPS collector (Bash + ifstat) → HTTP POST /bot/speed → Flask → HTTP GET /bot/speed`
 
-## Prerequisites
+- Collectors send readings every five seconds.
+- The API keeps the latest reading for each of two configured VPS instances in memory.
+- Clients can retrieve the latest readings as JSON.
+- There is no database or historical data retention; restarting the API clears the readings.
 
-### All VPS Instances
+## Technology
 
-* **Operating System:**  Linux (Ubuntu/Debian preferred)
-* **Packages:** `git`, `curl`, `speedtest-cli` (install via `apt install speedtest`), `python3`, `python3-venv`
-* **Network Access:**  Outbound access to the internet and the API server.
+Python, Flask, Bash, Linux, `ifstat`, and `curl`.
 
-### API Server VPS
+## Development setup
 
-* **Packages:** `python3`, `python3-venv`, `flask`
+### 1. Clone the repository
 
-## Installation and Setup
+```bash
+git clone https://github.com/ChalanaGimhanaX/Network-Monitoring-with-Flask-API.git
+cd Network-Monitoring-with-Flask-API
+```
 
-1. **Clone the Repository:**
-   ```bash
-   git clone [https://github.com/ChalanaGimhanaX/VPS-Network-Monitering-api-.git](https://github.com/ChalanaGimhanaX/VPS-Network-Monitering-api-.git)
-   cd VPS-Network-Monitering-api- 
-2.Make Scripts Executable:
-  chmod +x api/start_flask.sh vps1/speedtest.sh vps2/speedtest.sh bootstrap.sh
+On Ubuntu or Debian, install the prerequisites:
 
-3.Bootstrap Each VPS:
-* On the API Server VPS: ./bootstrap.sh api
-* On VPS1 (Monitoring Target): ./bootstrap.sh vps1
-* On VPS2 (Monitoring Target): ./bootstrap.sh vps2
- (Replace vps1 and vps2 with the names of your VPS folders)
+```bash
+sudo apt-get update
+sudo apt-get install -y python3 python3-venv ifstat curl
+```
 
-##Usage
-1.Start the API Server: On your API server VPS, navigate to the api directory and run ./start_flask.sh. This will start the Flask application.
+### 2. Configure the API and collectors
 
-2.Monitor Data:
- * API Endpoint: Access http://<your_api_server_ip>:5000/bot/speed in your browser to view the latest speed data.
- * Custom Script: Use the provided Python script (fetch_speed_data.py) on your local machine to fetch and display the speed data continuously.
+Before running the project:
 
-Configuration
- * API Endpoint: Modify the API_ENDPOINT variable in speedtest.sh scripts on the monitoring VPS instances to point to your actual API server.
- * Cron Jobs: Cron jobs are set up in start_flask.sh and speedtest.sh to automatically run the scripts on boot and periodically. You can adjust the frequency in the crontab files if needed.
-   
-Additional Information
- * Security: Consider adding authentication or restricting access to your API server for production environments.
- * Data Persistence: The current implementation stores data in memory. For long-term storage, you might want to integrate a database.
+- In `api/app.py`, replace the `vps1ip` and `vps2ip` placeholders in the source-IP checks with the collector addresses visible to the API.
+- In each collector script, replace the hard-coded HTTP destination with your API server's URL.
+- Set `vps_interface` to the actual network interface on each collector host.
 
-**License**
-This project is licensed under the MIT License.
-**Key Enhancements**
+The current source-IP checks use substring matching. Treat this as prototype routing logic, not authentication.
 
-* **Clear Structure:** The README is organized into sections with headers for easy navigation.
-* **Feature Highlights:** The features are prominently listed to attract users.
-* **Concise Instructions:** The installation and usage steps are clear and easy to follow.
-* **Additional Information:** Guidance on security and data persistence is provided.
-* **License:** The MIT license badge is included to clarify usage permissions.
+### 3. Start the API
+
+From the repository root:
+
+```bash
+cd api
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install flask
+python app.py
+```
+
+The development server listens on port `5000`.
+
+### 4. Start a collector
+
+On the corresponding VPS, from the repository root after configuration:
+
+```bash
+bash vps1/speedtest.sh
+```
+
+Use the corresponding script in `vps2/` for the second collector. Stop a foreground collector with Ctrl+C.
+
+### 5. Read the latest data
+
+```bash
+curl http://YOUR_API_SERVER:5000/bot/speed
+```
+
+## Current limitations
+
+- The API runs with Flask debug mode enabled and has no authentication or TLS configuration. Use a controlled development environment; production deployment needs a production server, authentication, and transport protection.
+- Readings are stored only in memory.
+- Collector destinations and interface names require manual configuration.
+- `bootstrap.sh` and `api/start_flask.sh` contain legacy repository paths; the startup script also has a placeholder cron path. Use the manual steps above until those scripts are updated.
+- Source-IP routing needs adjustment for NAT or reverse proxies.
+
+## Possible next steps
+
+Add configuration through environment variables, authenticated collector identities, persistent time-series storage, automated tests, and a dashboard.
